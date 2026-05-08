@@ -1501,33 +1501,7 @@ local config_holder
             window.watermark = watermark
         -- 
                 
-        -- esp preview - hardstuck top-right, follows main window
-            local esp_holder = library:panel({
-                name = "ESP Preview", 
-                anchor_point = vec2(0, 0),
-                size = dim2(0, 300, 0, 340),
-                position = dim2(0, main_window.items.main_holder.AbsolutePosition.X + main_window.items.main_holder.AbsoluteSize.X + 2, 0, main_window.items.main_holder.AbsolutePosition.Y),
-                image = "rbxassetid://77684377836328",
-            })  
-            esp_holder.items.main_holder.Active = false
-
-            main_window.items.main_holder:GetPropertyChangedSignal("AbsolutePosition"):Connect(function()
-                local mx = main_window.items.main_holder.AbsolutePosition.X
-                local my = main_window.items.main_holder.AbsolutePosition.Y
-                local mw = main_window.items.main_holder.AbsoluteSize.X
-                esp_holder.items.main_holder.Position = dim2(0, mx + mw + 2, 0, my)
-            end)
-            main_window.items.main_holder:GetPropertyChangedSignal("AbsoluteSize"):Connect(function()
-                local mx = main_window.items.main_holder.AbsolutePosition.X
-                local my = main_window.items.main_holder.AbsolutePosition.Y
-                local mw = main_window.items.main_holder.AbsoluteSize.X
-                esp_holder.items.main_holder.Position = dim2(0, mx + mw + 2, 0, my)
-            end)
-
-            local esp_items = esp_holder.items
-            local esp_column = setmetatable(esp_items, library):column() 
-            window.esp_section = esp_column:section({name = "Preview"})
-        --  
+        -- esp preview removed
 
         -- playerlist - hardstuck left, follows main window
             local pl_holder = library:panel({
@@ -2194,7 +2168,8 @@ local config_holder
         end     
     end
 
-    function library:notification(properties)
+    function library:notification(properties) return end
+    function library:_notification_real(properties)
         local cfg = {
             time = properties.time or 5,
             text = properties.text or properties.name or "Notification",
