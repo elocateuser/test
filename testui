@@ -66,7 +66,7 @@ local concat = table.concat
 
 -- library init
 local library = {
-    directory = "raeleigh",
+    directory = "elocate",
     folders = {
         "/fonts",
         "/configs",
@@ -392,6 +392,8 @@ local config_holder
         end)
     end
 
+    local elocate = {drawings = {}, instances = {}}
+
     function library:new_drawing(class, properties)
         local ins = Drawing.new(class)
 
@@ -399,7 +401,7 @@ local config_holder
             ins[_] = v
         end 
 
-        insert(raeleigh.drawings, ins)
+        insert(elocate.drawings, ins)
 
         return ins 
     end 
@@ -411,7 +413,7 @@ local config_holder
             ins[_] = v
         end 
 
-        insert(raeleigh.instances, ins)
+        insert(elocate.instances, ins)
 
         return ins 
     end 
@@ -1523,7 +1525,7 @@ local config_holder
 
         -- main window
             local main_window = library:panel({
-                name = properties and properties.name or "raeleigh | ", 
+                name = properties and properties.name or "elocate.lol | ", 
                 size = dim2(0, 604, 0, 628),
                 position = dim2(0, (camera.ViewportSize.X / 2) - 302 - 96, 0, (camera.ViewportSize.Y / 2) - 421 - 12),
                 image = "rbxassetid://98823308062942",
@@ -1628,11 +1630,11 @@ local config_holder
                 image = "rbxassetid://115194686863276",
             })
 
-            local watermark = library:watermark({default = os.date('raeleigh |  - %b %d %Y - %H:%M:%S')})  
+            local watermark = library:watermark({default = os.date('elocate.lol |  - %b %d %Y - %H:%M:%S')})  
 
             task.spawn(function()
                 while task.wait(1) do 
-                    watermark.change_text(os.date('raeleigh - Beta - %b %d %Y - %H:%M:%S'))
+                    watermark.change_text(os.date('elocate.lol - Beta - %b %d %Y - %H:%M:%S'))
                 end 
             end) 
 
@@ -1823,7 +1825,7 @@ local config_holder
 
     function library:watermark(options) 
         local cfg = {
-            default = options.text or options.default or os.date('drain.lol | %b %d %Y | %H:%M')
+            default = options.text or options.default or os.date('elocate.lol | %b %d %Y | %H:%M')
         }
 
         local watermark_outline = library:create("Frame", {
@@ -1876,7 +1878,7 @@ local config_holder
             FontFace = library.font,
             TextColor3 = themes.preset.text,
             BorderColor3 = rgb(0, 0, 0),
-            Text = "  drain.lol | Beta | Aug 29 2024 | 07:29:00  ",
+            Text = "  elocate.lol | Beta | Aug 29 2024 | 07:29:00  ",
             Size = dim2(0, 0, 1, 0),
             BackgroundTransparency = 1,
             Position = dim2(0, -1, 0, 1),
