@@ -1360,6 +1360,41 @@ local config_holder
                     rgbkey(1, rgb(17, 17, 17))
                 }
             }) library:apply_theme(UIGradient, "contrast", "Color") 
+
+            -- QOL: FPS + time label on the right side of dock
+            local dock_info = library:create("TextLabel", {
+                Parent = dock_holder;
+                Name = "\0";
+                FontFace = library.font;
+                TextColor3 = themes.preset.text;
+                BorderColor3 = rgb(0, 0, 0);
+                Text = "00 FPS | 00:00";
+                BackgroundTransparency = 1;
+                AnchorPoint = vec2(1, 0.5);
+                Position = dim2(1, -4, 0.5, 0);
+                Size = dim2(0, 0, 0, 0);
+                AutomaticSize = Enum.AutomaticSize.XY;
+                BorderSizePixel = 0;
+                TextSize = 12;
+                ZIndex = 5;
+                BackgroundColor3 = rgb(255, 255, 255);
+            }) library:apply_theme(dock_info, "text", "TextColor3")
+            library:create("UIStroke", {Parent = dock_info; LineJoinMode = Enum.LineJoinMode.Miter})
+
+            -- update FPS + time every second
+            task.spawn(function()
+                local fps_samples = {}
+                library:connection(run.RenderStepped, function(dt)
+                    table.insert(fps_samples, 1 / dt)
+                    if #fps_samples > 30 then table.remove(fps_samples, 1) end
+                end)
+                while task.wait(1) do
+                    local avg = 0
+                    for _, v in fps_samples do avg += v end
+                    avg = math.floor(avg / math.max(#fps_samples, 1))
+                    dock_info.Text = avg .. " FPS | " .. os.date("%H:%M")
+                end
+            end)
         -- 
 
         -- keybind list
@@ -1652,7 +1687,7 @@ local config_holder
             window.esp_section = esp_column:section({name = "Preview"})
         --  
 
-        -- playerlist - hardstuck left, follows main window
+        -- playerlist - hardstuck left, follows main window, custom with avatar + actions
             local pl_holder = library:panel({
                 name = "Playerlist", 
                 anchor_point = vec2(0, 0),
@@ -1675,13 +1710,381 @@ local config_holder
                 pl_holder.items.main_holder.Size = dim2(0, 260, 0, mh)
             end)
 
-            local pl_items = pl_holder.items
-            local pl_column = setmetatable(pl_items, library):column() 
-            local pl_section = pl_column:section({name = "Playerlist"})
-            local playerlist = pl_section:playerlist({})
-            pl_section:dropdown({name = "Priority", items = {"Enemy", "Priority", "Neutral", "Friendly"}, default = "Neutral", flag = "PLAYERLIST_DROPDOWN", callback = function(text)
-                library.prioritize(text)
-            end})
+            -- build custom playerlist UI inside pl_holder
+            do
+                local pl_sgui = pl_holder.items.sgui
+                local pl_main = pl_holder.items.main_holder
+
+                -- inner content frame (inside the panel borders)
+                local pl_inner = pl_holder.items.holder
+
+                -- avatar viewport at top
+                local avatar_outline = library:create("Frame", {
+                    Parent = pl_inner;
+                    Name = "\0";
+                    Size = dim2(1, 0, 0, 72);
+                    BorderColor3 = rgb(0, 0, 0);
+                    BorderSizePixel = 0;
+                    BackgroundColor3 = themes.preset.outline;
+                }) library:apply_theme(avatar_outline, "outline", "BackgroundColor3")
+
+                local avatar_inline = library:create("Frame", {
+                    Parent = avatar_outline;
+                    Name = "\0";
+                    Position = dim2(0, 1, 0, 1);
+                    Size = dim2(1, -2, 1, -2);
+                    BorderColor3 = rgb(0, 0, 0);
+                    BorderSizePixel = 0;
+                    BackgroundColor3 = themes.preset.inline;
+                }) library:apply_theme(avatar_inline, "inline", "BackgroundColor3")
+
+                local avatar_bg = library:create("Frame", {
+                    Parent = avatar_inline;
+                    Name = "\0";
+                    Position = dim2(0, 1, 0, 1);
+                    Size = dim2(1, -2, 1, -2);
+                    BorderColor3 = rgb(0, 0, 0);
+                    BorderSizePixel = 0;
+                    BackgroundColor3 = rgb(255, 255, 255);
+                })
+
+                local avatar_gradient = library:create("UIGradient", {
+                    Parent = avatar_bg;
+                    Rotation = 90;
+                    Color = rgbseq{rgbkey(0, rgb(10, 10, 10)), rgbkey(1, rgb(17, 17, 17))};
+                }) library:apply_theme(avatar_gradient, "contrast", "Color")
+
+                -- viewport for 3D avatar
+                local avatar_viewport = library:create("ViewportFrame", {
+                    Parent = avatar_bg;
+                    Name = "\0";
+                    BackgroundTransparency = 1;
+                    Size = dim2(0, 60, 0, 60);
+                    Position = dim2(0, 4, 0.5, -30);
+                    BorderSizePixel = 0;
+                    BorderColor3 = rgb(0, 0, 0);
+                })
+
+                local avatar_cam = library:create("Camera", {
+                    Parent = ws;
+                    Name = "\0";
+                    FieldOfView = 70;
+                    CameraType = Enum.CameraType.Track;
+                })
+                avatar_viewport.CurrentCamera = avatar_cam
+
+                -- player name label
+                local pl_name_label = library:create("TextLabel", {
+                    Parent = avatar_bg;
+                    Name = "\0";
+                    FontFace = library.font;
+                    TextColor3 = themes.preset.text;
+                    BorderColor3 = rgb(0, 0, 0);
+                    Text = "No player selected";
+                    BackgroundTransparency = 1;
+                    Position = dim2(0, 70, 0, 4);
+                    Size = dim2(1, -74, 0, 12);
+                    BorderSizePixel = 0;
+                    TextXAlignment = Enum.TextXAlignment.Left;
+                    TextSize = 12;
+                    TextTruncate = Enum.TextTruncate.AtEnd;
+                    BackgroundColor3 = rgb(255, 255, 255);
+                }) library:apply_theme(pl_name_label, "text", "TextColor3")
+                library:create("UIStroke", {Parent = pl_name_label; LineJoinMode = Enum.LineJoinMode.Miter})
+
+                local pl_display_label = library:create("TextLabel", {
+                    Parent = avatar_bg;
+                    Name = "\0";
+                    FontFace = library.font;
+                    TextColor3 = themes.preset.text;
+                    BorderColor3 = rgb(0, 0, 0);
+                    Text = "";
+                    BackgroundTransparency = 1;
+                    Position = dim2(0, 70, 0, 18);
+                    Size = dim2(1, -74, 0, 12);
+                    BorderSizePixel = 0;
+                    TextXAlignment = Enum.TextXAlignment.Left;
+                    TextSize = 12;
+                    TextTruncate = Enum.TextTruncate.AtEnd;
+                    BackgroundColor3 = rgb(255, 255, 255);
+                }) library:apply_theme(pl_display_label, "text", "TextColor3")
+                library:create("UIStroke", {Parent = pl_display_label; LineJoinMode = Enum.LineJoinMode.Miter})
+
+                -- action buttons row
+                local btn_row = library:create("Frame", {
+                    Parent = avatar_bg;
+                    Name = "\0";
+                    Position = dim2(0, 70, 0, 34);
+                    Size = dim2(1, -74, 0, 28);
+                    BackgroundTransparency = 1;
+                    BorderSizePixel = 0;
+                    BorderColor3 = rgb(0, 0, 0);
+                    BackgroundColor3 = rgb(255, 255, 255);
+                })
+                library:create("UIListLayout", {
+                    Parent = btn_row;
+                    FillDirection = Enum.FillDirection.Horizontal;
+                    Padding = dim(0, 3);
+                    SortOrder = Enum.SortOrder.LayoutOrder;
+                })
+
+                local selected_player = nil
+                local avatar_char_clone = nil
+
+                local function make_action_btn(parent, label, callback)
+                    local btn_outline = library:create("Frame", {
+                        Parent = parent;
+                        Name = "\0";
+                        Size = dim2(0, 0, 1, 0);
+                        AutomaticSize = Enum.AutomaticSize.X;
+                        BorderSizePixel = 0;
+                        BorderColor3 = rgb(0, 0, 0);
+                        BackgroundColor3 = themes.preset.outline;
+                    }) library:apply_theme(btn_outline, "outline", "BackgroundColor3")
+
+                    local btn_inline = library:create("Frame", {
+                        Parent = btn_outline;
+                        Position = dim2(0, 1, 0, 1);
+                        Size = dim2(1, -2, 1, -2);
+                        BorderSizePixel = 0;
+                        BorderColor3 = rgb(0, 0, 0);
+                        BackgroundColor3 = themes.preset.inline;
+                    }) library:apply_theme(btn_inline, "inline", "BackgroundColor3")
+
+                    local btn = library:create("TextButton", {
+                        Parent = btn_inline;
+                        Position = dim2(0, 1, 0, 1);
+                        Size = dim2(1, -2, 1, -2);
+                        BorderSizePixel = 0;
+                        BorderColor3 = rgb(0, 0, 0);
+                        FontFace = library.font;
+                        Text = " " .. label .. " ";
+                        TextSize = 12;
+                        AutomaticSize = Enum.AutomaticSize.X;
+                        BackgroundColor3 = rgb(10, 10, 10);
+                        TextColor3 = themes.preset.text;
+                        AutoButtonColor = false;
+                    }) library:apply_theme(btn, "text", "TextColor3")
+                    library:create("UIStroke", {Parent = btn; LineJoinMode = Enum.LineJoinMode.Miter})
+
+                    library:hoverify(btn, btn)
+                    btn.MouseButton1Click:Connect(function()
+                        if selected_player then callback(selected_player) end
+                    end)
+                    return btn
+                end
+
+                make_action_btn(btn_row, "TP", function(p)
+                    if p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
+                        lp.Character.HumanoidRootPart.CFrame = p.Character.HumanoidRootPart.CFrame + Vector3.new(0, 3, 0)
+                    end
+                end)
+                make_action_btn(btn_row, "Spectate", function(p)
+                    if p.Character and p.Character:FindFirstChildOfClass("Humanoid") then
+                        camera.CameraSubject = p.Character:FindFirstChildOfClass("Humanoid")
+                        camera.CameraType = Enum.CameraType.Follow
+                    end
+                end)
+                make_action_btn(btn_row, "Unspec", function(p)
+                    camera.CameraSubject = lp.Character and lp.Character:FindFirstChildOfClass("Humanoid")
+                    camera.CameraType = Enum.CameraType.Custom
+                end)
+                make_action_btn(btn_row, "Copy Name", function(p)
+                    setclipboard(p.Name)
+                end)
+
+                -- scrolling player list
+                local list_outline = library:create("Frame", {
+                    Parent = pl_inner;
+                    Name = "\0";
+                    Position = dim2(0, 0, 0, 74);
+                    Size = dim2(1, 0, 1, -74);
+                    BorderSizePixel = 0;
+                    BorderColor3 = rgb(0, 0, 0);
+                    BackgroundColor3 = themes.preset.outline;
+                }) library:apply_theme(list_outline, "outline", "BackgroundColor3")
+
+                local list_inline = library:create("Frame", {
+                    Parent = list_outline;
+                    Position = dim2(0, 1, 0, 1);
+                    Size = dim2(1, -2, 1, -2);
+                    BorderSizePixel = 0;
+                    BorderColor3 = rgb(0, 0, 0);
+                    BackgroundColor3 = themes.preset.inline;
+                }) library:apply_theme(list_inline, "inline", "BackgroundColor3")
+
+                local list_scroll = library:create("ScrollingFrame", {
+                    Parent = list_inline;
+                    Position = dim2(0, 1, 0, 1);
+                    Size = dim2(1, -2, 1, -2);
+                    BorderSizePixel = 0;
+                    BorderColor3 = rgb(0, 0, 0);
+                    BackgroundColor3 = rgb(255, 255, 255);
+                    BackgroundTransparency = 1;
+                    ScrollBarThickness = 2;
+                    ScrollBarImageColor3 = themes.preset.accent;
+                    AutomaticCanvasSize = Enum.AutomaticSize.Y;
+                    CanvasSize = dim2(0, 0, 0, 0);
+                    MidImage = "rbxassetid://103468666327206";
+                    TopImage = "rbxassetid://103468666327206";
+                    BottomImage = "rbxassetid://103468666327206";
+                }) library:apply_theme(list_scroll, "accent", "ScrollBarImageColor3")
+
+                library:create("UIListLayout", {
+                    Parent = list_scroll;
+                    Padding = dim(0, 1);
+                    SortOrder = Enum.SortOrder.LayoutOrder;
+                })
+
+                local player_rows = {}
+
+                local function update_avatar(player)
+                    -- clear old clone
+                    if avatar_char_clone then
+                        avatar_char_clone:Destroy()
+                        avatar_char_clone = nil
+                    end
+                    if not player then return end
+
+                    pl_name_label.Text = "@" .. player.Name
+                    pl_display_label.Text = player.DisplayName
+
+                    -- clone character into viewport
+                    if player.Character then
+                        player.Character.Archivable = true
+                        local clone = player.Character:Clone()
+                        pcall(function() clone.Animate:Destroy() end)
+                        clone.Parent = avatar_viewport
+                        avatar_char_clone = clone
+                        avatar_cam.CameraSubject = clone:FindFirstChildOfClass("Humanoid") or clone.PrimaryPart
+                        -- face camera
+                        pcall(function()
+                            clone:SetPrimaryPartCFrame(cfr(Vector3.new(0, 1, -4)) * angle(0, math.rad(180), 0))
+                        end)
+                    end
+                end
+
+                local function build_player_row(player)
+                    if player == lp then return end -- skip self
+
+                    local row_outline = library:create("Frame", {
+                        Parent = list_scroll;
+                        Name = player.Name;
+                        Size = dim2(1, 0, 0, 22);
+                        BorderSizePixel = 0;
+                        BorderColor3 = rgb(0, 0, 0);
+                        BackgroundColor3 = themes.preset.outline;
+                    }) library:apply_theme(row_outline, "outline", "BackgroundColor3")
+
+                    local row_bg = library:create("TextButton", {
+                        Parent = row_outline;
+                        Position = dim2(0, 1, 0, 1);
+                        Size = dim2(1, -2, 1, -2);
+                        BorderSizePixel = 0;
+                        BorderColor3 = rgb(0, 0, 0);
+                        FontFace = library.font;
+                        Text = "";
+                        TextSize = 12;
+                        BackgroundColor3 = rgb(10, 10, 10);
+                        AutoButtonColor = false;
+                    })
+
+                    local row_gradient = library:create("UIGradient", {
+                        Parent = row_bg;
+                        Rotation = 90;
+                        Color = rgbseq{rgbkey(0, rgb(10, 10, 10)), rgbkey(1, rgb(17, 17, 17))};
+                    }) library:apply_theme(row_gradient, "contrast", "Color")
+
+                    -- avatar thumbnail
+                    local thumb = library:create("ImageLabel", {
+                        Parent = row_bg;
+                        Name = "\0";
+                        Position = dim2(0, 2, 0.5, -9);
+                        Size = dim2(0, 18, 0, 18);
+                        BackgroundTransparency = 1;
+                        BorderSizePixel = 0;
+                        BorderColor3 = rgb(0, 0, 0);
+                        Image = "https://www.roblox.com/headshot-thumbnail/image?userId=" .. player.UserId .. "&width=48&height=48&format=png";
+                        BackgroundColor3 = rgb(255, 255, 255);
+                    })
+
+                    local name_lbl = library:create("TextLabel", {
+                        Parent = row_bg;
+                        Name = "\0";
+                        FontFace = library.font;
+                        TextColor3 = themes.preset.text;
+                        BorderColor3 = rgb(0, 0, 0);
+                        Text = player.Name;
+                        BackgroundTransparency = 1;
+                        Position = dim2(0, 24, 0, 0);
+                        Size = dim2(1, -24, 1, 0);
+                        BorderSizePixel = 0;
+                        TextXAlignment = Enum.TextXAlignment.Left;
+                        TextSize = 12;
+                        TextTruncate = Enum.TextTruncate.AtEnd;
+                        BackgroundColor3 = rgb(255, 255, 255);
+                    }) library:apply_theme(name_lbl, "text", "TextColor3")
+                    library:create("UIStroke", {Parent = name_lbl; LineJoinMode = Enum.LineJoinMode.Miter})
+
+                    -- highlight selected
+                    local selected_indicator = library:create("Frame", {
+                        Parent = row_bg;
+                        Name = "\0";
+                        Position = dim2(0, 0, 0, 0);
+                        Size = dim2(0, 2, 1, 0);
+                        BorderSizePixel = 0;
+                        BorderColor3 = rgb(0, 0, 0);
+                        BackgroundColor3 = themes.preset.accent;
+                        BackgroundTransparency = 1;
+                    }) library:apply_theme(selected_indicator, "accent", "BackgroundColor3")
+
+                    row_bg.MouseButton1Click:Connect(function()
+                        -- deselect all
+                        for _, r in player_rows do
+                            if r.indicator then r.indicator.BackgroundTransparency = 1 end
+                        end
+                        selected_player = player
+                        selected_indicator.BackgroundTransparency = 0
+                        update_avatar(player)
+                    end)
+
+                    player_rows[player.Name] = {row = row_outline, indicator = selected_indicator}
+                end
+
+                -- populate on load
+                for _, p in players:GetPlayers() do
+                    build_player_row(p)
+                end
+
+                players.PlayerAdded:Connect(function(p)
+                    task.wait(1) -- wait for character
+                    build_player_row(p)
+                end)
+
+                players.PlayerRemoving:Connect(function(p)
+                    if player_rows[p.Name] then
+                        player_rows[p.Name].row:Destroy()
+                        player_rows[p.Name] = nil
+                    end
+                    if selected_player == p then
+                        selected_player = nil
+                        update_avatar(nil)
+                        pl_name_label.Text = "No player selected"
+                        pl_display_label.Text = ""
+                    end
+                end)
+
+                -- keep avatar updated when selected player's character changes
+                library:connection(run.Heartbeat, function()
+                    if selected_player and avatar_char_clone then
+                        pcall(function()
+                            avatar_char_clone:SetPrimaryPartCFrame(
+                                cfr(Vector3.new(0, 1, -4)) * angle(0, math.rad(180), 0)
+                            )
+                        end)
+                    end
+                end)
+            end
         --  
 
         return setmetatable(window, library)
@@ -1795,48 +2198,10 @@ local config_holder
 
     function library:esp_preview(properties)
         local cfg = {items = {}, rotation = 0; objects = {};}
-        cfg.animation_mode = "Spin" -- default mode
-        cfg.anim_time = 0           -- internal timer for animations
 
         lp.Character.Archivable = true
         local character = lp.Character:Clone()
         character.Animate:Destroy()
-
-        -- load animations onto the cloned character
-        local humanoid = character:FindFirstChildOfClass("Humanoid")
-        local animator = humanoid and humanoid:FindFirstChildOfClass("Animator")
-        if not animator then
-            animator = Instance.new("Animator")
-            animator.Parent = humanoid
-        end
-
-        -- animation ids (standard R15 roblox anims)
-        local anim_ids = {
-            Idle  = "rbxassetid://507766388",
-            Run   = "rbxassetid://507767714",
-            Jump  = "rbxassetid://507765000",
-        }
-        local loaded_anims = {}
-        for name, id in next, anim_ids do
-            local anim = Instance.new("Animation")
-            anim.AnimationId = id
-            local track = pcall(function()
-                loaded_anims[name] = animator:LoadAnimation(anim)
-                loaded_anims[name].Looped = (name ~= "Jump")
-            end)
-        end
-
-        local current_track = nil
-        local function play_anim(name)
-            if current_track then
-                pcall(function() current_track:Stop(0.1) end)
-                current_track = nil
-            end
-            if loaded_anims[name] then
-                current_track = loaded_anims[name]
-                pcall(function() current_track:Play(0.1) end)
-            end
-        end
 
         local items = cfg.items; do 
             items.viewportframe = library:create( "ViewportFrame" , {
@@ -1851,7 +2216,7 @@ local config_holder
             });
             
             items.camera = library:create( "Camera" , {
-                FieldOfView = 70.00022888183594;
+                FieldOfView = 70;
                 CameraType = Enum.CameraType.Track;
                 Focus = cfr(0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1);
                 CFrame = cfr(0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1);
@@ -1863,54 +2228,17 @@ local config_holder
             character.Parent = items.viewportframe
             items.camera.CameraSubject = character
 
-            -- start default spin
-            play_anim("Idle")
-
+            -- face camera, gentle idle bob, no spinning
             library:connection(run.RenderStepped, function(dt)
-                local mode = cfg.animation_mode
-                cfg.anim_time += dt
-
-                if mode == "Spin" then
-                    -- constant slow spin, idle pose
-                    cfg.rotation += 1.2
-                    character:SetPrimaryPartCFrame(cfr(Vector3.new(0, 1, -6)) * angle(0, math.rad(cfg.rotation), 0))
-
-                elseif mode == "Idle" then
-                    -- face camera, slight bob
-                    local bob = math.sin(cfg.anim_time * 1.5) * 0.04
-                    character:SetPrimaryPartCFrame(cfr(Vector3.new(0, 1 + bob, -6)) * angle(0, math.rad(180), 0))
-
-                elseif mode == "Run" then
-                    -- face camera, run forward/back oscillation
-                    cfg.rotation += 1.2
-                    local z = math.sin(cfg.anim_time * 2) * 0.5
-                    character:SetPrimaryPartCFrame(cfr(Vector3.new(0, 1, -6 + z)) * angle(0, math.rad(cfg.rotation), 0))
-
-                elseif mode == "Jump" then
-                    -- bounce up and down
-                    local bounce = math.abs(math.sin(cfg.anim_time * 2.5)) * 1.2
-                    character:SetPrimaryPartCFrame(cfr(Vector3.new(0, 1 + bounce, -6)) * angle(0, math.rad(180), 0))
-                end
+                cfg.rotation += dt
+                local bob = math.sin(cfg.rotation * 1.2) * 0.06
+                character:SetPrimaryPartCFrame(
+                    cfr(Vector3.new(0, 1 + bob, -6)) * angle(0, math.rad(180), 0)
+                )
             end)
         end
 
-        -- expose set_animation_mode so demo can call it
-        function cfg.set_animation_mode(mode)
-            cfg.animation_mode = mode
-            cfg.anim_time = 0
-            if mode == "Idle" then
-                play_anim("Idle")
-            elseif mode == "Run" then
-                play_anim("Run")
-            elseif mode == "Jump" then
-                play_anim("Jump")
-            elseif mode == "Spin" then
-                play_anim("Idle")
-            end
-        end
-    
-
-        local objects = cfg.objects; do 
+        local objects = cfg.objects; do
             objects[ "holder" ] = library:create( "Frame" , {
                 Parent = items.viewportframe;
                 Name = "\0";
