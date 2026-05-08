@@ -1225,11 +1225,6 @@ local config_holder
         local window = {opened = true}            
         local opened = {}
         local dock_outline;
-        local blur = library:create( "BlurEffect" , {
-            Parent = lighting;
-            Enabled = true;
-            Size = 15
-        });    
 
         library.cache = library:create("ScreenGui", {
             Enabled = false,
@@ -1253,8 +1248,6 @@ local config_holder
                     end
                 end
             end
-
-            library:tween(blur, {Size = bool and (flags["Blur Size"] or 15) or 0})
 
             dock_outline.Visible = bool;
 
@@ -1631,7 +1624,7 @@ local config_holder
             window.watermark = watermark
         -- 
                 
-        -- esp preview - hardstuck top-right of main window
+        -- esp preview - hardstuck top-right, follows main window
             local esp_holder = library:panel({
                 name = "ESP Preview", 
                 anchor_point = vec2(0, 0),
@@ -1639,16 +1632,27 @@ local config_holder
                 position = dim2(0, main_window.items.main_holder.AbsolutePosition.X + main_window.items.main_holder.AbsoluteSize.X + 2, 0, main_window.items.main_holder.AbsolutePosition.Y),
                 image = "rbxassetid://77684377836328",
             })  
-            
-            -- lock esp preview to top-right of main window, no dragging
             esp_holder.items.main_holder.Active = false
+
+            main_window.items.main_holder:GetPropertyChangedSignal("AbsolutePosition"):Connect(function()
+                local mx = main_window.items.main_holder.AbsolutePosition.X
+                local my = main_window.items.main_holder.AbsolutePosition.Y
+                local mw = main_window.items.main_holder.AbsoluteSize.X
+                esp_holder.items.main_holder.Position = dim2(0, mx + mw + 2, 0, my)
+            end)
+            main_window.items.main_holder:GetPropertyChangedSignal("AbsoluteSize"):Connect(function()
+                local mx = main_window.items.main_holder.AbsolutePosition.X
+                local my = main_window.items.main_holder.AbsolutePosition.Y
+                local mw = main_window.items.main_holder.AbsoluteSize.X
+                esp_holder.items.main_holder.Position = dim2(0, mx + mw + 2, 0, my)
+            end)
 
             local esp_items = esp_holder.items
             local esp_column = setmetatable(esp_items, library):column() 
             window.esp_section = esp_column:section({name = "Preview"})
         --  
 
-        -- playerlist - hardstuck left of main window
+        -- playerlist - hardstuck left, follows main window
             local pl_holder = library:panel({
                 name = "Playerlist", 
                 anchor_point = vec2(0, 0),
@@ -1656,9 +1660,20 @@ local config_holder
                 position = dim2(0, main_window.items.main_holder.AbsolutePosition.X - 262, 0, main_window.items.main_holder.AbsolutePosition.Y),
                 image = "rbxassetid://107070078834415",
             })  
-            
-            -- lock playerlist to left of main window, no dragging
             pl_holder.items.main_holder.Active = false
+
+            main_window.items.main_holder:GetPropertyChangedSignal("AbsolutePosition"):Connect(function()
+                local mx = main_window.items.main_holder.AbsolutePosition.X
+                local my = main_window.items.main_holder.AbsolutePosition.Y
+                pl_holder.items.main_holder.Position = dim2(0, mx - 262, 0, my)
+            end)
+            main_window.items.main_holder:GetPropertyChangedSignal("AbsoluteSize"):Connect(function()
+                local mx = main_window.items.main_holder.AbsolutePosition.X
+                local my = main_window.items.main_holder.AbsolutePosition.Y
+                local mh = main_window.items.main_holder.AbsoluteSize.Y
+                pl_holder.items.main_holder.Position = dim2(0, mx - 262, 0, my)
+                pl_holder.items.main_holder.Size = dim2(0, 260, 0, mh)
+            end)
 
             local pl_items = pl_holder.items
             local pl_column = setmetatable(pl_items, library):column() 
@@ -1780,10 +1795,48 @@ local config_holder
 
     function library:esp_preview(properties)
         local cfg = {items = {}, rotation = 0; objects = {};}
+        cfg.animation_mode = "Spin" -- default mode
+        cfg.anim_time = 0           -- internal timer for animations
 
         lp.Character.Archivable = true
         local character = lp.Character:Clone()
         character.Animate:Destroy()
+
+        -- load animations onto the cloned character
+        local humanoid = character:FindFirstChildOfClass("Humanoid")
+        local animator = humanoid and humanoid:FindFirstChildOfClass("Animator")
+        if not animator then
+            animator = Instance.new("Animator")
+            animator.Parent = humanoid
+        end
+
+        -- animation ids (standard R15 roblox anims)
+        local anim_ids = {
+            Idle  = "rbxassetid://507766388",
+            Run   = "rbxassetid://507767714",
+            Jump  = "rbxassetid://507765000",
+        }
+        local loaded_anims = {}
+        for name, id in next, anim_ids do
+            local anim = Instance.new("Animation")
+            anim.AnimationId = id
+            local track = pcall(function()
+                loaded_anims[name] = animator:LoadAnimation(anim)
+                loaded_anims[name].Looped = (name ~= "Jump")
+            end)
+        end
+
+        local current_track = nil
+        local function play_anim(name)
+            if current_track then
+                pcall(function() current_track:Stop(0.1) end)
+                current_track = nil
+            end
+            if loaded_anims[name] then
+                current_track = loaded_anims[name]
+                pcall(function() current_track:Play(0.1) end)
+            end
+        end
 
         local items = cfg.items; do 
             items.viewportframe = library:create( "ViewportFrame" , {
@@ -1800,23 +1853,62 @@ local config_holder
             items.camera = library:create( "Camera" , {
                 FieldOfView = 70.00022888183594;
                 CameraType = Enum.CameraType.Track;
-                Focus = cfr(0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1); -- bro wtf is this serializer doing
+                Focus = cfr(0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1);
                 CFrame = cfr(0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1);
                 Parent = ws;
                 Name = "\0"
             }); 
 
-            items.viewportframe.CurrentCamera = items.camera -- sick
+            items.viewportframe.CurrentCamera = items.camera
             character.Parent = items.viewportframe
-
             items.camera.CameraSubject = character
 
-            library:connection(run.RenderStepped, function()
-                task.wait()
-                cfg.rotation += 0.5
-                character:SetPrimaryPartCFrame(cfr(Vector3.new(0, 1, -6)) * angle(0, math.rad(cfg.rotation), 0))
+            -- start default spin
+            play_anim("Idle")
+
+            library:connection(run.RenderStepped, function(dt)
+                local mode = cfg.animation_mode
+                cfg.anim_time += dt
+
+                if mode == "Spin" then
+                    -- constant slow spin, idle pose
+                    cfg.rotation += 1.2
+                    character:SetPrimaryPartCFrame(cfr(Vector3.new(0, 1, -6)) * angle(0, math.rad(cfg.rotation), 0))
+
+                elseif mode == "Idle" then
+                    -- face camera, slight bob
+                    local bob = math.sin(cfg.anim_time * 1.5) * 0.04
+                    character:SetPrimaryPartCFrame(cfr(Vector3.new(0, 1 + bob, -6)) * angle(0, math.rad(180), 0))
+
+                elseif mode == "Run" then
+                    -- face camera, run forward/back oscillation
+                    cfg.rotation += 1.2
+                    local z = math.sin(cfg.anim_time * 2) * 0.5
+                    character:SetPrimaryPartCFrame(cfr(Vector3.new(0, 1, -6 + z)) * angle(0, math.rad(cfg.rotation), 0))
+
+                elseif mode == "Jump" then
+                    -- bounce up and down
+                    local bounce = math.abs(math.sin(cfg.anim_time * 2.5)) * 1.2
+                    character:SetPrimaryPartCFrame(cfr(Vector3.new(0, 1 + bounce, -6)) * angle(0, math.rad(180), 0))
+                end
             end)
-        end 
+        end
+
+        -- expose set_animation_mode so demo can call it
+        function cfg.set_animation_mode(mode)
+            cfg.animation_mode = mode
+            cfg.anim_time = 0
+            if mode == "Idle" then
+                play_anim("Idle")
+            elseif mode == "Run" then
+                play_anim("Run")
+            elseif mode == "Jump" then
+                play_anim("Jump")
+            elseif mode == "Spin" then
+                play_anim("Idle")
+            end
+        end
+    
 
         local objects = cfg.objects; do 
             objects[ "holder" ] = library:create( "Frame" , {
