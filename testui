@@ -82,7 +82,6 @@ local library = {
 
     current_tab, 
     current_element_open, 
-    dock_button_holder,  
     old_config; 
     font, 
     keybind_list,
@@ -1191,7 +1190,6 @@ local config_holder
     function library:window(properties)
         local window = {opened = true}            
         local opened = {}
-        local dock_outline;
 
         library.cache = library:create("ScreenGui", {
             Enabled = false,
@@ -1216,8 +1214,6 @@ local config_holder
                 end
             end
 
-            dock_outline.Visible = bool;
-
             sgui.Enabled = true
             notif_holder.Enabled = true
             tooltip_sgui.Enabled = true
@@ -1234,28 +1230,7 @@ local config_holder
             end
         end 
 
-        -- dock init (hidden - no dock bar shown)
-            dock_outline = library:create("Frame", {
-                Parent = sgui,
-                Name = "",
-                Visible = false,
-                BorderColor3 = rgb(0, 0, 0),
-                Position = dim2(0, 0, 0, 0),
-                Size = dim2(0, 1, 0, 1),
-                BorderSizePixel = 0,
-                BackgroundColor3 = themes.preset.outline
-            })
-
-            local button_holder = library:create("Frame", {
-                Parent = dock_outline,
-                Name = "",
-                BackgroundTransparency = 1,
-                Size = dim2(1, 0, 1, 0),
-                BorderColor3 = rgb(0, 0, 0),
-                BorderSizePixel = 0,
-                BackgroundColor3 = rgb(255, 255, 255)
-            }) library.dock_holder = button_holder;
-        -- 
+        -- dock removed --
 
         -- keybind list
             local outline = library:create("Frame", {
@@ -1693,7 +1668,7 @@ local config_holder
 
         lp.Character.Archivable = true
         local character = lp.Character:Clone()
-        character.Animate:Destroy()
+        pcall(function() character.Animate:Destroy() end)
 
         local items = cfg.items; do 
             items.viewportframe = library:create( "ViewportFrame" , {
@@ -1753,7 +1728,7 @@ local config_holder
             objects[ "name" ] = library:create( "TextLabel" , {
                 FontFace = library.font;
                 Parent = library.cache;
-                TextColor3 = flags["Name_Color"].Color;
+                TextColor3 = (flags["Name_Color"] and flags["Name_Color"].Color) or rgb(255,255,255);
                 BorderColor3 = rgb(0, 0, 0);
                 Text = string.format("%s (@%s)", lp.DisplayName, lp.Name);
                 Name = "\0";
@@ -2001,7 +1976,7 @@ local config_holder
             -- Distance esp
                 objects[ "distance" ] = library:create( "TextLabel" , {
                     FontFace = library.font;
-                    TextColor3 = flags["Distance_Color"].Color;
+                    TextColor3 = (flags["Distance_Color"] and flags["Distance_Color"].Color) or rgb(200,200,200);
                     BorderColor3 = rgb(0, 0, 0);
                     Text = "127st";
                     Parent = library.cache;
@@ -2477,6 +2452,11 @@ local config_holder
         end
         
         tab_holder.MouseButton1Click:Connect(cfg.open_tab)
+
+        -- auto-open this tab if nothing is open yet
+        if not library.current_tab then
+            cfg.open_tab()
+        end
         
         return setmetatable(cfg, library) 
     end
@@ -5148,8 +5128,8 @@ local config_holder
             })
                 
             TextBox:GetPropertyChangedSignal("Text"):Connect(function()
-                flags[cfg.flag] = TextBox.text
-                cfg.callback(TextBox.text)
+                flags[cfg.flag] = TextBox.Text
+                cfg.callback(TextBox.Text)
             end)
         -- 
 
@@ -5670,7 +5650,7 @@ local config_holder
                 Size = dim2(0, 1, 0, 12),
                 BorderSizePixel = 0,
                 BackgroundColor3 = themes.preset.outline
-            }) library:apply_theme(main_holder, "outline", "BackgroundColor3") 
+            }) library:apply_theme(Frame, "outline", "BackgroundColor3") 
             
             local UIListLayout = library:create("UIListLayout", {
                 Parent = TextButton,
@@ -5695,7 +5675,7 @@ local config_holder
                 Size = dim2(1, 0, 0, 1),
                 BorderSizePixel = 0,
                 BackgroundColor3 = themes.preset.outline
-            }) library:apply_theme(main_holder, "outline", "BackgroundColor3") 
+            }) library:apply_theme(line, "outline", "BackgroundColor3") 
 
             path.instance = TextButton 
             path.line = line 
@@ -5703,6 +5683,17 @@ local config_holder
             path.priority_text = priority_text
             -- library.selected_player = players[tostring(player)]
             
+            local hover_color = Color3.fromRGB(255, 255, 255)
+            TextButton.MouseEnter:Connect(function()
+                if TextButton ~= (selected_button and selected_button.Parent) then
+                    TextButton.BackgroundTransparency = 0.85
+                    TextButton.BackgroundColor3 = hover_color
+                end
+            end)
+            TextButton.MouseLeave:Connect(function()
+                TextButton.BackgroundTransparency = 1
+            end)
+
             TextButton.MouseButton1Click:Connect(function()
                 if selected_button then 
                     selected_button.TextColor3 = themes.preset.text 
@@ -5766,11 +5757,6 @@ local config_holder
 
         players.PlayerAdded:Connect(cfg.create_player)
         players.PlayerRemoving:Connect(cfg.remove_player)
-        
-        for _, player in players:GetPlayers() do 
-            local player_object = cfg.create_player(player.Name)
-            insert(library.playerlist_data, player_object)
-        end 
 
         self:textbox({name = "Search", callback = function(txt)
             cfg.search(txt)
@@ -5899,6 +5885,11 @@ local config_holder
                 return path
             end
         end
+
+        -- populate existing players AFTER viewport setup so the override is active
+        for _, player in players:GetPlayers() do 
+            cfg.create_player(player)
+        end 
 
         return setmetatable(cfg, library)
     end 
