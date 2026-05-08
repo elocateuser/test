@@ -1850,8 +1850,9 @@ local config_holder
             items.camera = library:create( "Camera" , {
                 FieldOfView = 55;
                 CameraType = Enum.CameraType.Track;
-                CFrame = cfr(Vector3.new(0, 1.5, 4), Vector3.new(0, 1.5, 0));
-                Focus = cfr(Vector3.new(0, 1.5, 0));
+                -- camera frames upper body: character root at ~Y=1, camera at Y=2.2 Z=3.5
+                CFrame = cfr(Vector3.new(0, 2.2, 3.5), Vector3.new(0, 2.2, 0));
+                Focus = cfr(Vector3.new(0, 2.2, 0));
                 Parent = ws;
                 Name = "\0"
             }); 
@@ -1861,9 +1862,12 @@ local config_holder
             items.camera.CameraSubject = character
 
             -- place character centered, facing camera, completely still
+            -- offset Y so HumanoidRootPart sits at world origin properly
             pcall(function()
+                local hrp = character:FindFirstChild("HumanoidRootPart")
+                local yOffset = hrp and hrp.Size.Y / 2 or 0
                 character:SetPrimaryPartCFrame(
-                    cfr(Vector3.new(0, 0, 0)) * angle(0, math.rad(180), 0)
+                    cfr(Vector3.new(0, yOffset, 0)) * angle(0, math.rad(180), 0)
                 )
             end)
         end
@@ -2155,7 +2159,7 @@ local config_holder
             -- Weapon esp
                 objects[ "weapon" ] = library:create( "TextLabel" , {
                     FontFace = library.font;
-                    TextColor3 = flags["Weapon_Color"].Color;
+                    TextColor3 = flags["Weapon_Color"] and flags["Weapon_Color"].Color or rgb(180,180,180);
                     BorderColor3 = rgb(0, 0, 0);
                     Text = "[ Weapon ]";
                     Parent = library.cache;
@@ -2168,7 +2172,54 @@ local config_holder
                     AutomaticSize = Enum.AutomaticSize.Y;
                     TextSize = 12;
                 });
-            --  
+            --
+
+            -- Health number
+                objects[ "health_number" ] = library:create( "TextLabel" , {
+                    FontFace = library.font;
+                    TextColor3 = rgb(200, 200, 200);
+                    BorderColor3 = rgb(0, 0, 0);
+                    Text = "100 HP";
+                    Parent = library.cache;
+                    TextStrokeTransparency = 0;
+                    Name = "\0";
+                    Size = dim2(0, 0, 0, 0);
+                    BackgroundTransparency = 1;
+                    AnchorPoint = vec2(0, 0.5);
+                    Position = dim2(0, -5, 0, 0);
+                    BorderSizePixel = 0;
+                    AutomaticSize = Enum.AutomaticSize.XY;
+                    TextSize = 10;
+                });
+            --
+
+            -- Head dot
+                objects[ "head_dot" ] = library:create( "Frame" , {
+                    Parent = library.cache;
+                    Name = "\0";
+                    AnchorPoint = vec2(0.5, 0.5);
+                    Position = dim2(0.5, 0, 0, -8);
+                    BorderColor3 = rgb(0, 0, 0);
+                    Size = dim2(0, 6, 0, 6);
+                    BorderSizePixel = 0;
+                    BackgroundColor3 = rgb(255, 255, 255);
+                });
+                library:create( "UICorner" , {
+                    Parent = objects[ "head_dot" ];
+                    CornerRadius = dim(0.5, 0);
+                });
+            --
+
+            -- Chams (SelectionBox highlight)
+                objects[ "chams" ] = library:create( "SelectionBox" , {
+                    Parent = library.cache;
+                    Name = "\0";
+                    Color3 = rgb(255, 255, 255);
+                    LineThickness = 0.05;
+                    SurfaceTransparency = 0.6;
+                    SurfaceColor3 = rgb(255, 255, 255);
+                });
+            --
         end 
 
         cfg.change_health = function()
@@ -2190,22 +2241,74 @@ local config_holder
             objects.holder.Parent = flags["Enabled"] and items.viewportframe or library.cache
 
             local temp = {
-                ["Names"] = objects["name"]; 
-                ["Name_Color"] = {objects["name"]};
-                ["Healthbar"] = objects[ "healthbar_holder" ];
-                ["Distance"] = objects[ "distance" ];
-                ["Weapon"] = objects[ "weapon" ];
+                ["Names"]          = objects["name"]; 
+                ["Name_Color"]     = {objects["name"]};
+                ["Healthbar"]      = objects[ "healthbar_holder" ];
+                ["Health_Number"]  = objects[ "health_number" ];
+                ["Head_Dot"]       = objects[ "head_dot" ];
+                ["Distance"]       = objects[ "distance" ];
+                ["Weapon"]         = objects[ "weapon" ];
                 ["Distance_Color"] = {objects[ "distance" ]};
-                ["Weapon_Color"] = {objects[ "weapon" ]};
+                ["Weapon_Color"]   = {objects[ "weapon" ]};
+                ["Health_Number_Color"] = {objects[ "health_number" ]};
+                ["Head_Dot_Color"] = nil; -- handled below
             }
 
-            for flag,object in temp do 
+            for flag, object in temp do 
+                if object == nil then continue end
                 if type(object) == "table" then 
-                    object[1].TextColor3 = flags[flag].Color
+                    if flags[flag] and flags[flag].Color then
+                        object[1].TextColor3 = flags[flag].Color
+                    end
                 else 
                     object.Parent = flags[flag] and objects[ "holder" ] or library.cache
                 end
-            end 
+            end
+
+            -- head dot color
+            if objects["head_dot"] and flags["Head_Dot_Color"] and flags["Head_Dot_Color"].Color then
+                objects["head_dot"].BackgroundColor3 = flags["Head_Dot_Color"].Color
+            end
+
+            -- chams
+            if flags["Chams"] then
+                objects["chams"].Parent = items.viewportframe
+                objects["chams"].Adornee = character
+                if flags["Chams_Color"] and flags["Chams_Color"].Color then
+                    objects["chams"].Color3 = flags["Chams_Color"].Color
+                    objects["chams"].SurfaceColor3 = flags["Chams_Color"].Color
+                end
+                if flags["Chams_Fill_Transparency"] then
+                    objects["chams"].SurfaceTransparency = flags["Chams_Fill_Transparency"]
+                end
+            else
+                objects["chams"].Parent = library.cache
+                objects["chams"].Adornee = nil
+            end
+
+            -- name position
+            if flags["Name_Position"] then
+                local pos = flags["Name_Position"]
+                if pos == "Top" then
+                    objects["name"].Position = dim2(0, 0, 0, -5)
+                    objects["name"].AnchorPoint = vec2(0, 1)
+                elseif pos == "Bottom" then
+                    objects["name"].Position = dim2(0, 0, 1, 5)
+                    objects["name"].AnchorPoint = vec2(0, 0)
+                end
+            end
+
+            -- distance position
+            if flags["Distance_Position"] then
+                local pos = flags["Distance_Position"]
+                if pos == "Top" then
+                    objects["distance"].Position = dim2(0, 0, 0, -18)
+                    objects["distance"].AnchorPoint = vec2(0, 1)
+                elseif pos == "Bottom" then
+                    objects["distance"].Position = dim2(0, 0, 1, 5)
+                    objects["distance"].AnchorPoint = vec2(0, 0)
+                end
+            end
             
             local is_corner = flags[ "Box_Type" ] == "Corner"
 
@@ -2225,10 +2328,12 @@ local config_holder
                 objects[ "box_outline" ].Parent = library.cache
             end 
 
-            objects[ "box_color" ].Color = flags["Box_Color"].Color 
-
-            for _, corner in objects[ "corners" ]:GetChildren() do
-                corner.Frame.BackgroundColor3 = flags["Box_Color"].Color
+            if flags["Box_Color"] and flags["Box_Color"].Color then
+                objects[ "box_color" ].Color = flags["Box_Color"].Color 
+                for _, corner in objects[ "corners" ]:GetChildren() do
+                    local inner = corner:FindFirstChildOfClass("Frame")
+                    if inner then inner.BackgroundColor3 = flags["Box_Color"].Color end
+                end
             end
         end
 
@@ -5739,10 +5844,6 @@ local config_holder
             -- library.selected_player = players[tostring(player)]
             
             TextButton.MouseButton1Click:Connect(function()
-                if player_name == lp.Name then 
-                    return 
-                end 
-
                 if selected_button then 
                     selected_button.TextColor3 = themes.preset.text 
                     selected_button = nil 
@@ -5920,13 +6021,15 @@ local config_holder
                                 vp_char_clone = clone
                                 -- position character centered, facing camera
                                 pcall(function()
+                                    local hrp = clone:FindFirstChild("HumanoidRootPart")
+                                    local yOff = hrp and hrp.Size.Y / 2 or 0
                                     clone:SetPrimaryPartCFrame(
-                                        cfr(Vector3.new(0, 0, 0)) * angle(0, math.rad(180), 0)
+                                        cfr(Vector3.new(0, yOff, 0)) * angle(0, math.rad(180), 0)
                                     )
                                 end)
-                                -- camera looks at upper body
-                                vp_cam.CFrame = cfr(Vector3.new(0, 1.5, 4), Vector3.new(0, 1.5, 0))
-                                vp_cam.Focus = cfr(Vector3.new(0, 1.5, 0))
+                                -- camera frames upper body
+                                vp_cam.CFrame = cfr(Vector3.new(0, 2.2, 3.5), Vector3.new(0, 2.2, 0))
+                                vp_cam.Focus = cfr(Vector3.new(0, 2.2, 0))
                                 vp_placeholder.Visible = false
                                 vp_frame.Visible = true
                             end
