@@ -340,11 +340,13 @@ local config_holder
     function library:draggify(frame)
         local dragging = false 
         local start_size = frame.Position
-        local start 
+        local start
+        local drag_delay = 0.08  -- drag delay in seconds
+        local drag_tick = 0
 
         frame.InputBegan:Connect(function(input)
             if input.UserInputType == Enum.UserInputType.MouseButton1 then
-                dragging = true
+                drag_tick = tick()
                 start = input.Position
                 start_size = frame.Position
 
@@ -355,9 +357,15 @@ local config_holder
                 end 
 
                 if frame.Parent:IsA("ScreenGui") and frame.Parent.DisplayOrder ~= 999999 then 
-                    library.display_orders += 1 -- shit code
+                    library.display_orders += 1
                     frame.Parent.DisplayOrder = library.display_orders
-                end   
+                end
+
+                task.delay(drag_delay, function()
+                    if tick() - drag_tick < drag_delay + 0.05 then
+                        dragging = true
+                    end
+                end)
             end
         end)
 
@@ -845,52 +853,22 @@ local config_holder
                     SliceCenter = rect(vec2(21, 21), vec2(79, 79))
                 }) library:apply_theme(items.glow, "glow", "ImageColor3") 
             -- 
-            
-            -- Button
+
+            -- Button (hidden - dock removed)
                 items.button = library:create("TextButton", {
                     Parent = library.dock_holder,
                     Name = "",
                     TextColor3 = rgb(0, 0, 0),
                     BorderColor3 = rgb(0, 0, 0),
                     Text = "",
-                    Size = dim2(0, 25, 0, 25),
+                    Size = dim2(0, 0, 0, 0),
                     BorderSizePixel = 0,
                     TextSize = 14,
+                    Visible = false,
                     BackgroundColor3 = themes.preset.inline
                 })
-                
-                local button_inline = library:create("Frame", {
-                    Parent = items.button,
-                    Name = "",
-                    Position = dim2(0, 1, 0, 1),
-                    BorderColor3 = rgb(0, 0, 0),
-                    Size = dim2(1, -2, 1, -2),
-                    BorderSizePixel = 0,
-                    BackgroundColor3 = themes.preset.outline
-                }) library:apply_theme(button_inline, "outline", "BackgroundColor3") 
-                
-                local button_inline = library:create("Frame", {
-                    Parent = button_inline,
-                    Name = "",
-                    Position = dim2(0, 1, 0, 1),
-                    BorderColor3 = rgb(0, 0, 0),
-                    Size = dim2(1, -2, 1, -2),
-                    BorderSizePixel = 0,
-                    BackgroundColor3 = rgb(255, 255, 255)
-                }) library:apply_theme(button_inline, "inline", "BackgroundColor3")
-                
-                local UIGradient = library:create("UIGradient", {
-                    Parent = button_inline,
-                    Name = "",
-                    Rotation = 90,
-                    Color = rgbseq{
-                        rgbkey(0, rgb(17, 17, 17)),
-                        rgbkey(1, rgb(10, 10, 10))
-                    }
-                }) library:apply_theme(UIGradient, "contrast", "Color") 
-                
                 items.Icon = library:create("ImageLabel", {
-                    Parent = button_inline,
+                    Parent = items.button,
                     Name = "",
                     ImageColor3 = themes.preset.accent,
                     Image = cfg.image,
@@ -899,19 +877,8 @@ local config_holder
                     Size = dim2(1, 0, 1, 0),
                     BorderSizePixel = 0,
                     BackgroundColor3 = rgb(255, 255, 255)
-                }) library:apply_theme(items.Icon, "accent", "ImageColor3") library:apply_theme(items.Icon, "inline", "ImageColor3") 
-                
-                local UIPadding = library:create("UIPadding", {
-                    Parent = button_inline,
-                    Name = "",
-                    PaddingTop = dim(0, 4),
-                    PaddingBottom = dim(0, 4),
-                    PaddingRight = dim(0, 4),
-                    PaddingLeft = dim(0, 4)
                 })
             -- 
-
-            library:tool_tip({name = cfg.name, path = items.button})
         end 
 
         items.sgui:GetPropertyChangedSignal("Enabled"):Connect(function()
@@ -1267,65 +1234,20 @@ local config_holder
             end
         end 
 
-        -- dock init
+        -- dock init (hidden - no dock bar shown)
             dock_outline = library:create("Frame", {
                 Parent = sgui,
                 Name = "",
-                Visible = true,
+                Visible = false,
                 BorderColor3 = rgb(0, 0, 0),
-                AnchorPoint = vec2(0.5, 0),
-                Position = dim2(0.5, 0, 0, 20),
-                Size = dim2(0, 157, 0, 39),
+                Position = dim2(0, 0, 0, 0),
+                Size = dim2(0, 1, 0, 1),
                 BorderSizePixel = 0,
                 BackgroundColor3 = themes.preset.outline
-            }); 
-
-            library:apply_theme(dock_outline, "outline", "BackgroundColor3"); 
-            dock_outline.Position = dim2(0, dock_outline.AbsolutePosition.X, 0, dock_outline.AbsolutePosition.Y); 
-            dock_outline.AnchorPoint = vec2(0, 0); 
-            library:draggify(dock_outline);
-
-            local dock_inline = library:create("Frame", {
-                Parent = dock_outline,
-                Name = "",
-                Position = dim2(0, 1, 0, 1),
-                BorderColor3 = rgb(0, 0, 0),
-                Size = dim2(1, -2, 1, -2),
-                BorderSizePixel = 0,
-                BackgroundColor3 = themes.preset.inline
-            }) library:apply_theme(dock_inline, "inline", "BackgroundColor3") 
-            
-            local dock_holder = library:create("Frame", {
-                Parent = dock_inline,
-                Name = "",
-                Size = dim2(1, -2, 1, -2),
-                Position = dim2(0, 1, 0, 1),
-                BorderColor3 = themes.preset.outline,
-                BorderSizePixel = 0,
-                BackgroundColor3 = rgb(255, 255, 255)
-            }) library:apply_theme(dock_holder, "outline", "BackgroundColor3") 
-            
-            local accent = library:create("Frame", {
-                Parent = dock_holder,
-                Name = "",
-                Size = dim2(1, 0, 0, 2),
-                BorderColor3 = rgb(0, 0, 0),
-                BorderSizePixel = 0,
-                BackgroundColor3 = themes.preset.accent
-            }) library:apply_theme(accent, "accent", "BackgroundColor3") 
-            
-            local UIGradient = library:create("UIGradient", {
-                Parent = accent,
-                Name = "",
-                Rotation = 90,
-                Color = rgbseq{
-                rgbkey(0, rgb(255, 255, 255)),
-                rgbkey(1, rgb(167, 167, 167))
-            }
             })
-            
+
             local button_holder = library:create("Frame", {
-                Parent = dock_holder,
+                Parent = dock_outline,
                 Name = "",
                 BackgroundTransparency = 1,
                 Size = dim2(1, 0, 1, 0),
@@ -1333,68 +1255,6 @@ local config_holder
                 BorderSizePixel = 0,
                 BackgroundColor3 = rgb(255, 255, 255)
             }) library.dock_holder = button_holder;
-            
-            local UIListLayout = library:create("UIListLayout", {
-                Parent = button_holder,
-                Name = "",
-                Padding = dim(0, 5),
-                FillDirection = Enum.FillDirection.Horizontal,
-                SortOrder = Enum.SortOrder.LayoutOrder
-            })
-            
-            local UIPadding = library:create("UIPadding", {
-                Parent = button_holder,
-                Name = "",
-                PaddingTop = dim(0, 6),
-                PaddingBottom = dim(0, 4),
-                PaddingRight = dim(0, 4),
-                PaddingLeft = dim(0, 4)
-            })
-                    
-            local UIGradient = library:create("UIGradient", {
-                Parent = dock_holder,
-                Name = "",
-                Rotation = 90,
-                Color = rgbseq{
-                    rgbkey(0, rgb(10, 10, 10)),
-                    rgbkey(1, rgb(17, 17, 17))
-                }
-            }) library:apply_theme(UIGradient, "contrast", "Color") 
-
-            -- QOL: FPS + time label on the right side of dock
-            local dock_info = library:create("TextLabel", {
-                Parent = dock_holder;
-                Name = "\0";
-                FontFace = library.font;
-                TextColor3 = themes.preset.text;
-                BorderColor3 = rgb(0, 0, 0);
-                Text = "00 FPS | 00:00";
-                BackgroundTransparency = 1;
-                AnchorPoint = vec2(1, 0.5);
-                Position = dim2(1, -4, 0.5, 0);
-                Size = dim2(0, 0, 0, 0);
-                AutomaticSize = Enum.AutomaticSize.XY;
-                BorderSizePixel = 0;
-                TextSize = 12;
-                ZIndex = 5;
-                BackgroundColor3 = rgb(255, 255, 255);
-            }) library:apply_theme(dock_info, "text", "TextColor3")
-            library:create("UIStroke", {Parent = dock_info; LineJoinMode = Enum.LineJoinMode.Miter})
-
-            -- update FPS + time every second
-            task.spawn(function()
-                local fps_samples = {}
-                library:connection(run.RenderStepped, function(dt)
-                    table.insert(fps_samples, 1 / dt)
-                    if #fps_samples > 30 then table.remove(fps_samples, 1) end
-                end)
-                while task.wait(1) do
-                    local avg = 0
-                    for _, v in fps_samples do avg += v end
-                    avg = math.floor(avg / math.max(#fps_samples, 1))
-                    dock_info.Text = avg .. " FPS | " .. os.date("%H:%M")
-                end
-            end)
         -- 
 
         -- keybind list
