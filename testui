@@ -340,14 +340,17 @@ local config_holder
         local dragging = false 
         local start_size = frame.Position
         local start
-        local drag_delay = 0.08  -- drag delay in seconds
+        local drag_delay = 0.06
         local drag_tick = 0
+        local target_pos = frame.Position
+        local smoothing = 0.18  -- lower = snappier, higher = more delay
 
         frame.InputBegan:Connect(function(input)
             if input.UserInputType == Enum.UserInputType.MouseButton1 then
                 drag_tick = tick()
                 start = input.Position
                 start_size = frame.Position
+                target_pos = frame.Position
 
                 if library.current_element_open then 
                     library.current_element_open.set_visible(false)
@@ -379,7 +382,7 @@ local config_holder
                 local viewport_x = camera.ViewportSize.X
                 local viewport_y = camera.ViewportSize.Y
 
-                local current_position = dim2(
+                target_pos = dim2(
                     0,
                     clamp(
                         start_size.X.Offset + (input.Position.X - start.X),
@@ -393,8 +396,12 @@ local config_holder
                         viewport_y - frame.Size.Y.Offset
                     )
                 )
-
-                frame.Position = current_position
+                -- smooth lerp toward target position
+                local cx = frame.Position.X.Offset
+                local cy = frame.Position.Y.Offset
+                local nx = cx + (target_pos.X.Offset - cx) * (1 - smoothing)
+                local ny = cy + (target_pos.Y.Offset - cy) * (1 - smoothing)
+                frame.Position = dim2(0, nx, 0, ny)
             end
         end)
     end
@@ -1684,11 +1691,10 @@ local config_holder
             
             items.camera = library:create( "Camera" , {
                 FieldOfView = 55;
-                CameraType = Enum.CameraType.Track;
-                -- camera frames upper body: character root at ~Y=1, camera at Y=2.2 Z=3.5
+                CameraType = Enum.CameraType.Custom;
                 CFrame = cfr(Vector3.new(0, 2.2, 3.5), Vector3.new(0, 2.2, 0));
                 Focus = cfr(Vector3.new(0, 2.2, 0));
-                Parent = ws;
+                Parent = items.viewportframe;
                 Name = "\0"
             }); 
 
@@ -5704,12 +5710,28 @@ local config_holder
                 player_name.TextColor3 = themes.preset.accent 
 
                 library.selected_player = player_name.Text
-                library.config_flags["PLAYERLIST_DROPDOWN"](path.priority_text.Text)
+                if library.config_flags["PLAYERLIST_DROPDOWN"] then
+                    library.config_flags["PLAYERLIST_DROPDOWN"](path.priority_text.Text)
+                end
 
+                local pObj = players:FindFirstChild(player_name.Text)
                 if cfg.labels.name then 
                     cfg.labels.name.set("User: " .. player_name.Text)
-                    cfg.labels.display.set("DisplayName: " .. players[player_name.Text].DisplayName)
-                    cfg.labels.uid.set("User Id: " .. players[player_name.Text].UserId)
+                    if pObj then
+                        cfg.labels.display.set("DisplayName: " .. pObj.DisplayName)
+                        cfg.labels.uid.set("User Id: " .. tostring(pObj.UserId))
+                        -- load avatar thumbnail async
+                        if cfg._avatar_img then
+                            task.spawn(function()
+                                local ok, img = pcall(function()
+                                    return players:GetUserThumbnailAsync(pObj.UserId, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size48x48)
+                                end)
+                                if ok and img and cfg._avatar_img.Parent then
+                                    cfg._avatar_img.Image = img
+                                end
+                            end)
+                        end
+                    end
                 end
             end)
 
@@ -5835,10 +5857,10 @@ local config_holder
             })
 
             local vp_cam = library:create("Camera", {
-                Parent = ws;
+                Parent = vp_frame;
                 Name = "\0";
                 FieldOfView = 55;
-                CameraType = Enum.CameraType.Track;
+                CameraType = Enum.CameraType.Custom;
             })
             vp_frame.CurrentCamera = vp_cam
 
