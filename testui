@@ -4881,13 +4881,6 @@ local config_holder
                 Padding = dim(0, 4),
                 SortOrder = Enum.SortOrder.LayoutOrder
             })
-            
-            -- Set config holder reference for library functions
-            config_holder = nil
-            
-            -- Set config holder reference
-            config_holder = ScrollingFrame
-            
         --  
 
         function cfg.render_option(text) 
