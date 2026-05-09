@@ -460,7 +460,8 @@ local config_holder
     
         local list = {}
     
-        for idx, file in next, listfiles(library.directory .. "/configs") do
+        local files = listfiles(library.directory .. "/configs")
+        for _, file in ipairs(files) do
             local name = string.sub(file:gsub(library.directory .. "/configs\\", ""):gsub(library.directory .. "\\configs\\", ""), 1, -5)
             list[#list + 1] = name
         end
@@ -471,13 +472,13 @@ local config_holder
     function library:get_config()
         local Config = {}
     
-        for _, v in flags do
+        for flag, v in pairs(flags) do
             if type(v) == "table" and v.key then
-                Config[_] = {active = v.active, mode = v.mode, key = tostring(v.key)}
+                Config[flag] = {active = v.active, mode = v.mode, key = tostring(v.key)}
             elseif type(v) == "table" and v["Transparency"] and v["Color"] then
-                Config[_] = {Transparency = v["Transparency"], Color = v["Color"]:ToHex()}
+                Config[flag] = {Transparency = v["Transparency"], Color = v["Color"]:ToHex()}
             else
-                Config[_] = v
+                Config[flag] = v
             end
         end 
         
@@ -485,18 +486,22 @@ local config_holder
     end
 
     function library:load_config(config_json) 
-        local config = http_service:JSONDecode(config_json)
+        local success, config = pcall(function() return http_service:JSONDecode(config_json) end)
+        if not success then
+            pcall(function() library:notification({text="Invalid config file",time=3}) end)
+            return
+        end
     
-        for _, v in next, config do 
-            local function_set = library.config_flags[_]
+        for flag, v in pairs(config) do 
+            local function_set = library.config_flags[flag]
             
             if function_set then 
                 if type(v) == "table" and v["Transparency"] and v["Color"] then
-                    function_set(hex(v["Color"]), v["Transparency"])
+                    pcall(function() function_set(hex(v["Color"]), v["Transparency"]) end)
                 elseif type(v) == "table" and v["active"] then 
-                    function_set(v)
+                    pcall(function() function_set(v) end)
                 else 
-                    function_set(v)
+                    pcall(function() function_set(v) end)
                 end
             end 
         end 
@@ -4913,11 +4918,12 @@ local config_holder
                 return 
             end 
 
-            for _, v in next, cfg.option_instances do 
+            for _, v in pairs(cfg.option_instances) do 
                 v:Destroy() 
             end 
+            cfg.option_instances = {}
 
-            for _, option in next, options do 
+            for _, option in ipairs(options) do 
                 local button = cfg.render_option(option) 
 
                 insert(cfg.option_instances, button)
@@ -4934,11 +4940,23 @@ local config_holder
                     
                     cfg.callback(button.text)
                 end)
+                
+                -- Add hover effects
+                button.MouseEnter:Connect(function()
+                    if cfg.current_instance ~= button then
+                        button.TextColor3 = themes.preset.accent
+                    end
+                end)
+                button.MouseLeave:Connect(function()
+                    if cfg.current_instance ~= button then
+                        button.TextColor3 = themes.preset.text
+                    end
+                end)
             end 
         end     
 
         function cfg.filter_options(text)
-            for _, v in next, cfg.option_instances do 
+            for _, v in pairs(cfg.option_instances) do 
                 if string.find(v.Text, text) then 
                     v.Visible = true 
                 else 
@@ -4948,9 +4966,10 @@ local config_holder
         end 
 
         function cfg.set(value)
-            for _, buttons in next, cfg.option_instances do 
+            for _, buttons in pairs(cfg.option_instances) do 
                 if buttons.Text == value then 
                     buttons.TextColor3 = themes.preset.accent 
+                    cfg.current_instance = buttons
                 else 
                     buttons.TextColor3 = themes.preset.text 
                 end 
