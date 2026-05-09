@@ -4229,7 +4229,7 @@ local config_holder
                 local selected_key = input.UserInputType == Enum.UserInputType.Keyboard and input.KeyCode or input.UserInputType
 
                 if not game_event then 
-                    if selected_key == cfg.key then 
+                    if cfg.key ~= "none" and selected_key == cfg.key then 
                         if cfg.mode == "toggle" then 
                             cfg.active = not cfg.active
                             cfg.set(cfg.active)
@@ -4247,7 +4247,7 @@ local config_holder
 
                 local selected_key = input.UserInputType == Enum.UserInputType.Keyboard and input.KeyCode or input.UserInputType
     
-                if selected_key == cfg.key then
+                if cfg.key ~= "none" and selected_key == cfg.key then
                     if cfg.mode == "hold" then 
                         cfg.set(false)
                     end
