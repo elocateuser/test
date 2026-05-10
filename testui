@@ -98,14 +98,14 @@ local config_flags = library.config_flags
 
 local themes = {
     preset = {
-        ["outline"] = hex("#000000"), -- 
-        ["inline"] = hex("#1A1A1A"), --
-        ["accent"] = hex("#FFFFFF"), --
-        ["high_contrast"] = hex("#0A0A0A"),
-        ["low_contrast"] = hex("#111111"),
-        ["text"] = hex("#FFFFFF"),
-        ["text_outline"] = rgb(0, 0, 0),
-        ["glow"] = hex("#FFFFFF"), 
+        ["outline"] = hex("#2A1A2A"), -- Dark purple
+        ["inline"] = hex("#3C2E4E"), -- Medium purple
+        ["accent"] = hex("#9333EA"), -- Purple accent
+        ["high_contrast"] = hex("#1F1B2E"), -- Purple high contrast
+        ["low_contrast"] = hex("#4A2A5A"), -- Purple low contrast
+        ["text"] = hex("#F0F0F0"), -- White text for readability
+        ["text_outline"] = rgb(120, 100, 130), -- Purple outline
+        ["glow"] = hex("#9333EA"), -- Purple glow
     },
 
     utility = {
